@@ -1,0 +1,62 @@
+#!/bin/bash -e
+if [[ "$1" == "-h" ]]; then
+  exec /usr/libexec/s2i/usage
+fi
+
+# Restore artifacts from the previous build (if they exist).
+echo "---> Restoring build artifacts..."
+if [ "$(ls -A /tmp/artifacts/ 2>/dev/null)" ]; then
+  echo "---> Restoring found build artifacts..."
+  cp -Rf /tmp/artifacts/. ./
+fi
+
+echo "---> Installing application source..."
+cp -Rf /tmp/src/. ./
+
+echo "Determining builder"
+# If a build.gradle is present, this is a normal build scenario so run gradle.
+if [ -f "build.gradle" ]; then
+  echo "Found build.gradle"
+  BUILDER=gradle
+  BUILD_ARGS=${GRADLE_ARGS:-${BUILD_ARGS:-"build"}}
+  ARTIFACT_DIR=${ARTIFACT_DIR:-build/libs}
+  if [ -f "gradlew" ]; then
+    echo "---> Building application with wrapper..."
+    BUILDER="./gradlew"
+  fi
+fi
+# If a pom.xml is present, this is a normal build scenario so run maven.
+if [ -f "pom.xml" ]; then
+  echo "Found pom.xml"
+  BUILDER=mvn
+  BUILD_ARGS=${MAVEN_ARGS:-${BUILD_ARGS:-"install"}}
+  ARTIFACT_DIR=${ARTIFACT_DIR:-target}
+  if [ -f "mvnw" ]; then
+    echo "---> Building application with wrapper..."
+    BUILDER="./mvnw"
+  fi
+fi
+
+if [ -z "$BUILDER" ]; then
+  echo "---> Could not determine builder (gradle or maven)"
+  exit 1
+fi
+
+echo "---> Building application from source..."
+BUILD_ARGS=${BUILD_ARGS:-"install"}
+echo "--> # BUILDER = $BUILDER"
+echo "--> # BUILD_ARGS = $BUILD_ARGS"
+
+echo "---> Building application with..."
+echo "--------> $BUILDER $BUILD_ARGS"
+$BUILDER $BUILD_ARGS
+
+echo $ARTIFACT_DIR
+echo "---> Rename artifact $(find $ARTIFACT_DIR -maxdepth 1 -name *.jar)"
+result_file=$(find $ARTIFACT_DIR -maxdepth 1 -name *.jar)
+if [ -z "$result_file" ]; then
+  echo "---> Build file could not be found"
+  exit 1
+fi
+echo $result_file
+mv $result_file app.jar
