@@ -13,6 +13,7 @@ fi
 echo "---> Installing application source..."
 cp -Rf /tmp/src/. ./
 
+#TODO: Extend to support zip files from nexus
 echo "Determining builder"
 # If a build.gradle is present, this is a normal build scenario so run gradle.
 if [ -f "build.gradle" ]; then
